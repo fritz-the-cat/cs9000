@@ -1,0 +1,399 @@
+cs9000
+FEED+ADJUST+OPEN+CUT ALL PRESSED AT POWER-ON
+300-7FF <= FF
+HANG
+
+
+
+
+CUT+ADJUST PRESSED AT POWER-ON
+[60]=0
+[205]=0
+WAIT FOR "CUT" "MXSTART" "CYCLESTOP"
+
+"CUT"
+  HOME CUT MOTOR
+
+"MXSTART" 
+  BEEP
+  [63]=305
+  MOVE CUT TO [63]+[205]
+  WAIT FOR "OPEN" "FEED" "CUT" "CYCLESTOP"
+  "OPEN" 
+    [205]++
+    CUT MOVE +1
+  "FEED"
+    [205]--
+    CUT MOVE -1
+  "CUT"
+    BEEP
+    HOME CUT
+    CUT TO [99]+[205]
+    WAIT FOR "OPEN"+"FEED"+"CUT"+"ADJUST" OFF
+    WAIT FOR "CYCLESTOP" "CUT" "CUTSENSOR"
+      "CYCLESTOP"
+        restore [205]
+        restart
+      "CUT"
+        RESTART WITH NEW [205]
+        
+      "CUTSENSOR"
+        BEEPER ON
+
+  "CYCLESTOP"
+    restore [205]
+    restart
+  
+
+"CYCLESTOP"
+  restore [205]
+  restart
+
+
+
+FEED+OPEN+CUT ALL PRESSED AT POWER-ON
+200-204 ZEROED
+
+
+ADJUST PRESSED AT POWER-ON
+.
+.
+HOME CUT
+HOME DIST
+HOME LIFT
+READJUST DIST
+LEFT FEED FWD 200 THEN REVERSE 200
+RIGHT FEED FWD 200 THEN REVERSE 200
+
+cs9000 commands
+
+
+
+cmd c1 c2 c3 c4 c5 c6 c7 c8 ... cn chk $0D
+
+0 = xor [cmd thru chk]
+
+'C' return 8 digits from $200:$203
+'V' return version string
+'H' home cutter, test RAM, move cutter to [60,61,62]
+'D'  X1H X1L X2H X2L X3H X3L ... X53H X53L X54H X54L CHK $0D
+     X1H X1L  like '4A' for 4Ah
+     copy 54 bytes from input buffer to $60 thru $95
+'O'  X1H X1L X2H X2L X3H X3L ... X15H X15L X16H X16L CHK $0D
+     X1H X1L  like '4A' for 4Ah
+     copy 16 bytes from input buffer to $50 thru $5F
+     $50 $51 $52 $53 are doubled before copying
+'L'
+'Z'
+
+LEFT REEL = RIGHT REEL = 140mm/rev = 1000 steps/rev
+0.140mm/step 25.4mm=1.0inch
+
+**********************
+'P'$55==01 8791
+**********************
+[A9]=1000d,[AD]=1000d
+L/R FEED TO [75]
+CUT TO [99]+[$0205]
+CUT TO [60]
+
+**********************
+'P'$55==02 87AA
+**********************
+[A1]=1000d,[A5]=1000d,[A9]=1000d,[AD]=1000d,[B1]=1000d,[B5]=1000d
+L/R FEED TO [75],[A5]=[AD]=[B5]=[A1]=[A9]=[B1]=[75]
+CUT TO [99]+[$0205]
+CUT TO [60]
+
+
+**********************
+START 'P'$55==03 8946
+**********************
+[A9]=1000d,[AD]=1000d
+if[6F]!=1000d{                      ;[6F]=right end strip length + 1000
+  L/R FEED TO [6F],[AD]=[A9]=[6F]
+  SOLENOID1=ON
+  CUT TO [63]+[$0205]               ;[63]=insulation cut
+  CUT TO [69]+[$0205]               ;[69]=insulation cut + backoff
+  L FEED TO [AD]=[72],[A9]=[72]
+  CUT TO [60]                        ;[60]=cutter clear
+  SOLENOID1=OFF
+}
+
+L/R FEED TO [7B],[AD]=[A9]=[7B]
+SOLENOID1=ON
+CUT TO [66]+[$0205]                ;[66]=insulation cut
+CUT TO [6C]+[$0205]                ;[6C]=insulation cut + backoff
+L FEED TO [78],[AD]=[A9]=[78]
+CUT TO [60]                        ;[60]=cutter clear
+SOLENOID1=OFF
+
+$45.3=1                               $8995
+L/R FEED TO [75],$45.3=0,[AD]=[A9]=[75]
+SOLENOID1=ON
+CUT TO [99]+[$0205]
+CUT TO [60]                        ;[60]=cutter clear
+SOLENOID1=OFF
+PULSE AIR                             $89AE
+**********************
+END 'P'$55==03
+**********************
+181.4286 step/inch
+
+
+**********************
+'P'$55==04 87C3
+**********************
+LS  LG                                      RG  RS
+====--======================================--====
+  ----======================================----
+  |                                             |WL = total_wire_length
+LS = left_strip_length
+LG = left_strip_gap
+RG = right_strip_gap
+RS = right_strip_length
+
+[60] = cutter clear (25)
+[63] = right wire end insulation cut
+[69] = right wire end back off cutter
+[66] = left wire end insulation cut	(269)
+[6C] = left wire end back off cutter (264)
+[6F] = RS
+[72] = (RS - RG)
+[75] = WL = total_wire_length
+[78] = (WL - LS)
+[7B] = (WL - LS) + LG
+[8A] = 0
+[8D] = 0
+[99] = cut wire (360)
+
+[A1]=1000d,[A5]=1000d,[A9]=1000d,[AD]=1000d,[B1]=1000d,[B5]=1000d
+if[6F]!=1000d {
+	L/R FEED TO [6F], [A5]=[AD]=[B5]=[A1]=[A9]=[B1]=[6F]
+                           move right wire end insulation
+                           cut point under cutter
+	SOLENOID1=ON
+	CUT TO [63]+[$0205]    [66]=insulation cut
+	CUT TO [69]+[$0205]          back off cutter
+	IF[8A]!=[8D]{
+	  LIFT TO [8D]
+	}
+	L FEED TO [72], [A5]=[AD]=[B5]=[A1]=[A9]=[B1]=[72]
+	CUT TO [60]            [60]=25=cutter clear
+	SOLENOID1=OFF
+	PULSE AIR
+}
+IF[8A]!=[8D]{
+  LIFT TO [8A]
+}
+L/R FEED TO [75],[A5]=[AD]=[B5]=[A1]=[A9]=[B1]=[75]			
+                            [75]=1454 = total wire length
+
+SOLENOID1=ON                           $881C
+CUT TO [99]+[$0205]			360 cut wire
+SOLENOID1=OFF                          $8821
+
+IF [75]!=[7B]{                         $8823    [75]!=[7B]
+  CUT TO [9C]									0
+}ELSE{
+  CUT TO [60]                  ;[60]=25=cutter clear
+}
+
+[A9]=[AD]=1000d
+if [75]!=[7B] {
+  L FEED -35d STEPS         -35 move next wire right end clear of cutter
+  SOLENOID0=ON
+  R FEED TO [78],[B5]=[B1]=[78]		1454 move left wire end insulation
+                                         cut point under cutter
+  CUT TO [66]+[$205]				269 insulation cut
+  CUT TO [6C]+[$205]				264 back off cutter
+  IF $45.4{
+    LIFT TO [8D],[C5]=[C1]=[8D]
+  }
+  R FEED TO [7B],[B5]=[B1]=[7B]		1461 strip left end of wire
+  CUT TO [60]                  ;[60]=25=cutter clear							
+  SOLENOID0=OFF
+  PULSE AIR
+  R FEED +140d
+  L FEED +35d
+}
+
+**********************
+'P'$55==06 8873
+**********************
+[A1]=1000d,[A5]=1000d,[A9]=1000d,[AD]=1000d,[B1]=1000d,[B5]=1000d
+if[6F]!=1000d{
+    [A5]=[AD]=[B5]=[6F]
+    L/R FEED TO [6F],[A1]=[A9]=[B1]=[6F]
+
+    SOLENOID1=ON
+    CUT TO [63]+[$0205]
+    CUT TO [69]+[$0205]
+    IF[8A]!=[8D]{
+      LIFT TO [8D]
+    }
+    [A5]=[AD]=[B5]=[72]
+    L FEED TO [72],[A1]=[A9]=[B1]=[72]
+    CUT TO [60]
+    SOLENOID1=OFF
+    PULSE AIR                             $88AC
+
+    [A5]=[AD]=[B5]=[81]                   $88AF
+    L/R FEED TO [81],[A1]=[A9]=[B1]=[81]
+    SOLENOID1=ON                          $88BA
+    CUT TO [63]+[$0205]
+    CUT TO [69]+[$0205]
+    [A5]=[AD]=[B5]=[7E]
+    L FEED TO [7E],[A1]=[A9]=[B1]=[7E2]
+    CUT TO [60]
+    SOLENOID1=OFF                         $88D0
+}
+IF[8A]!=[8D]{                         $88d2
+  LIFT TO [8A]
+}
+$45.3=1
+[A5]=[AD]=[B5]=[75]
+L/R FEED TO [75]
+$45.3=0
+[A1]=[A9]=[B1]=[6F]
+
+SOLENOID1=ON                          $88EF
+CUT TO [99]+[$205]
+SOLENOID1=OFF
+IF $4B.3{
+  CUT TO [9C]
+}ELSE{
+  CUT TO [60]
+}
+
+[A9]=[AD]=1000d
+IF $4B.3 {
+  L FEED -35d
+  SOLENOID0=ON
+  [B5]=[78]
+  R FEED TO [78], [B1]=[78]
+  CUT TO [66]+[$205]
+  CUT TO [6C]+[$205]
+  IF[8A]!=[8D]{
+    LIFT TO [8A]
+  }
+  [B5]=[7B]
+  R FEED TO [7B],[B9]=[7B]
+  CUT TO [60]
+  SOLENOID0=OFF
+  PULSE AIR
+  R FEED +140d
+  L FEED +35d
+}
+
+
+speed table1[52] feed
+0:1500
+1:2000
+2:3000
+3:4000
+4:5000
+5:6500
+6:8000
+7:9500
+8:11000
+9:12000
+
+accel table1[53] feed
+0:2
+1:9
+2:32
+3:48
+4:64
+5:96
+6:128
+7:160
+8:192
+9:240
+
+
+speed table2[$50] cut
+0:1500
+1:2000
+2:3000
+3:4000
+4:5000
+5:6500
+6:7000
+7:8000
+8:9000
+9:10000
+
+accel table2[$51] cut
+0:2
+1:16
+2:64
+3:128
+4:192
+5:256
+6:320
+7:384
+8:389
+9:400
+
+
+
+
+
+**********************
+'P'$55==05 89B2
+**********************
+[A9]=1000d,[AD]=1000d
+[AD]=[6F]
+L/R FEED TO [6F],[A9]=[6F]
+SOLENOID1=ON
+CUT TO [63]+[$0205]
+CUT TO [69]+[$0205]
+[AD]=[72]
+L FEED TO [72],[A9]=[72]
+CUT TO [60]
+SOLENOID1=OFF
+
+[AD]=[81]                           $89D8
+L/R FEED TO [81],[A9]=[81]
+SOLENOID1=ON
+CUT TO [63]+[$0205]
+CUT TO [69]+[$0205]
+[AD]=[7E]
+L FEED TO [7E],[A9]=[7E]
+CUT TO [60]
+SOLENOID1=OFF                       $89F9
+
+[AD]=[7B]                           $89FB
+L/R FEED TO [7B],[A9]=[7B]
+SOLENOID1=ON
+CUT TO [66]+[$0205]
+CUT TO [6C]+[$0205]
+[AD]=[78]
+L FEED TO [78],[A9]=[78]
+CUT TO [60]
+SOLENOID1=OFF                       $8A1C
+
+$45.3=1
+[AD]=[75]
+L/R FEED TO [75],$45.3=0,[A9]=[75]
+CUT TO [99]+[$205]
+CUT TO [60]
+SOLENOID1=OFF
+PULSE AIR
+
+
+
+
+
+        self.txtCount
+        self.txtWireLength
+        self.txtLeftStrip
+        self.txtLeftGap
+        self.txtRightGap
+        self.txtRightStrip
+        self.txtMode
+        self.txtCutSpeed
+        self.txtCutAccel
+        self.txtFeedSpeed
+        self.txtFeedAccel
